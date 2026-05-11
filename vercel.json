@@ -2,5 +2,31 @@
   "buildCommand": "prisma generate && next build",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "functions": {
+    "src/app/api/groups/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/telegram/request-otp/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/telegram/verify-otp/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/autosend/start/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/autosend/stop/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/autosend/config/setup/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/upload/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/chatbot/route.ts": {
+      "maxDuration": 30
+    }
+  }
 }

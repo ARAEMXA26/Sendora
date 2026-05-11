@@ -106,7 +106,7 @@ model TargetGroup {
   namaGrup        String
   providerGroupId String?
   source          GroupSource @default(MANUAL)
-  photoUrl        String?
+  photoUrl        String?     @db.Text
   memberCount     Int?
   onlineCount     Int?
   createdAt       DateTime    @default(now())

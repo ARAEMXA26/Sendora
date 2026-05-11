@@ -305,61 +305,80 @@ export class TelegramService {
 
     try {
       let target = groupName.trim();
-      const matchFetchAll = target.match(/\(([-]?[0-9]+)\)$/);
-      if (matchFetchAll) {
-        target = matchFetchAll[1];
-      } else {
-        const matchUrl = target.match(/(?:https?:\/\/)?(?:t\.me|telegram\.me)\/([a-zA-Z0-9_]+)/i);
-        if (matchUrl) target = matchUrl[1];
-      }
 
+      // Handle @username format
+      if (target.startsWith("@")) target = target.slice(1);
+
+      // Handle t.me/username or telegram.me/username
+      const matchUrl = target.match(/(?:https?:\/\/)?(?:t\.me|telegram\.me)\/([a-zA-Z0-9_]+)/i);
+      if (matchUrl) target = matchUrl[1];
+
+      // Handle "Name (123456)" format
+      const matchFetchAll = target.match(/\(([-]?[0-9]+)\)$/);
+      if (matchFetchAll) target = matchFetchAll[1];
+
+      // Prefix bare numeric IDs
       if (/^[0-9]+$/.test(target)) target = `-100${target}`;
 
-      let entity;
+      // Resolve entity — try multiple strategies
+      let entity: any = null;
       try {
         entity = await client.getEntity(target);
-      } catch (err: any) {
+      } catch {
         if (/^-100[0-9]+$/.test(target)) {
-          try {
-             entity = await client.getEntity(target.replace('-100', '-'));
-          } catch(e) {}
+          try { entity = await client.getEntity(target.replace("-100", "-")); } catch {}
         }
       }
-      
+
+      // Fallback: search in dialogs by title or username
+      if (!entity) {
+        try {
+          const dialogs = await client.getDialogs({ limit: 200 });
+          const raw = groupName.trim().replace(/^@/, "").toLowerCase();
+          const found = dialogs.find((d) =>
+            d.title?.toLowerCase() === raw ||
+            (d.entity as any)?.username?.toLowerCase() === raw
+          );
+          if (found?.entity) entity = found.entity;
+        } catch {}
+      }
+
       if (!entity) return null;
 
+      const title: string = (entity as any).title || groupName;
+      const id: string = (entity as any).id?.toString() || "";
       let photoUrl: string | null = null;
-      let memberCount: number | null = null;
+      let memberCount: number | null = (entity as any).participantsCount || null;
       let onlineCount: number | null = null;
-      let title: string = (entity as any).title || groupName;
 
+      // Fetch full channel/chat info
       try {
         const full = await client.invoke(new Api.channels.GetFullChannel({ channel: entity }));
         if (full.fullChat) {
-          memberCount = (full.fullChat as any).participantsCount || null;
+          memberCount = (full.fullChat as any).participantsCount || memberCount;
           onlineCount = (full.fullChat as any).onlineCount || null;
         }
-      } catch (e) {
+      } catch {
         try {
           const fullChat = await client.invoke(new Api.messages.GetFullChat({ chatId: entity as any }));
           if (fullChat.fullChat) {
-             memberCount = (fullChat.fullChat as any).participantsCount || null;
-             onlineCount = (fullChat.fullChat as any).onlineCount || null;
+            memberCount = (fullChat.fullChat as any).participantsCount || memberCount;
+            onlineCount = (fullChat.fullChat as any).onlineCount || null;
           }
-        } catch (e2) {}
+        } catch {}
       }
 
+      // Download photo — skip if > 200KB to avoid DB bloat on Vercel
       try {
         const buffer = await client.downloadProfilePhoto(entity);
-        if (buffer && Buffer.isBuffer(buffer) && buffer.length > 0) {
-          // Store as base64 data URL — works on Vercel (no filesystem write needed)
+        if (buffer && Buffer.isBuffer(buffer) && buffer.length > 0 && buffer.length < 200 * 1024) {
           photoUrl = `data:image/jpeg;base64,${buffer.toString("base64")}`;
         }
-      } catch (e) {
-        console.error("Failed to download profile photo:", e);
+      } catch {
+        // Photo is optional, skip silently
       }
 
-      return { photoUrl, memberCount, onlineCount, title, id: (entity as any).id?.toString() || "" };
+      return { photoUrl, memberCount, onlineCount, title, id };
     } catch (error) {
       console.error(`Failed to fetch group info for ${groupName}:`, error);
       return null;
