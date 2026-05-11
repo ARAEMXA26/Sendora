@@ -1,7 +1,6 @@
 import { Api, TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { db } from "@/lib/database";
-import path from "path";
 
 export type OtpDeliveryResult = {
   otp?: string;
@@ -239,14 +238,6 @@ export class TelegramService {
       const dialogs = await client.getDialogs();
       const rawGroups = dialogs.filter((d) => d.isChannel || d.isGroup);
 
-      const fs = await import("fs");
-      const path = await import("path");
-      const crypto = await import("crypto");
-
-      if (!fs.existsSync(path.join(process.cwd(), "public", "groups"))) {
-        fs.mkdirSync(path.join(process.cwd(), "public", "groups"), { recursive: true });
-      }
-
       const groups = [];
       const MAX_GROUPS = 50; // Just in case to avoid slow processing
       const limitedGroups = rawGroups.slice(0, MAX_GROUPS);
@@ -257,12 +248,9 @@ export class TelegramService {
          try {
              if (d.entity) {
                  const buffer = await client.downloadProfilePhoto(d.entity);
-                 if (buffer) {
-                     const hash = crypto.createHash("md5").update(d.entity.id.toString()).digest("hex");
-                     const fileName = `${hash}.jpg`;
-                     const filePath = path.join(process.cwd(), "public", "groups", fileName);
-                     fs.writeFileSync(filePath, buffer);
-                     photoUrl = `/groups/${fileName}`;
+                 if (buffer && Buffer.isBuffer(buffer) && buffer.length > 0) {
+                     // Store as base64 data URL — works on Vercel (no filesystem write needed)
+                     photoUrl = `data:image/jpeg;base64,${buffer.toString("base64")}`;
                  }
              }
          } catch(e) {}
@@ -363,21 +351,9 @@ export class TelegramService {
 
       try {
         const buffer = await client.downloadProfilePhoto(entity);
-        if (buffer) {
-          const fs = await import("fs");
-          const path = await import("path");
-          const crypto = await import("crypto");
-          
-          const hash = crypto.createHash("md5").update(target).digest("hex");
-          const fileName = `${hash}.jpg`;
-          const filePath = path.join(process.cwd(), "public", "groups", fileName);
-          
-          if (!fs.existsSync(path.join(process.cwd(), "public", "groups"))) {
-            fs.mkdirSync(path.join(process.cwd(), "public", "groups"), { recursive: true });
-          }
-          
-          fs.writeFileSync(filePath, buffer);
-          photoUrl = `/groups/${fileName}`;
+        if (buffer && Buffer.isBuffer(buffer) && buffer.length > 0) {
+          // Store as base64 data URL — works on Vercel (no filesystem write needed)
+          photoUrl = `data:image/jpeg;base64,${buffer.toString("base64")}`;
         }
       } catch (e) {
         console.error("Failed to download profile photo:", e);
@@ -432,7 +408,9 @@ export class TelegramService {
 
       // Build send options
       const sendOptions: Record<string, any> = { message: teks };
-      if (mediaUrl && typeof mediaUrl === "string") {
+      if (mediaUrl && typeof mediaUrl === "string" && !mediaUrl.startsWith("data:")) {
+        // Only set file path for non-base64 media (base64 media not supported in auto-send)
+        const path = await import("path");
         sendOptions.file = path.join(process.cwd(), 'public', mediaUrl);
       }
 
@@ -449,7 +427,13 @@ export class TelegramService {
       }
 
       console.error(`Gagal mengirim ke target ${rawInputTarget}:`, e);
-      if (e.message?.includes("BANNED") || e.message?.includes("FORBIDDEN") || e.message?.includes("PRIVATE") || e.message === "USER_KICKED") {
+      // Throw USER_KICKED only for explicit membership errors
+      if (
+        e.message === "USER_KICKED" ||
+        e.message?.includes("CHANNEL_PRIVATE") ||
+        e.message?.includes("USER_NOT_PARTICIPANT") ||
+        e.message?.includes("CHAT_WRITE_FORBIDDEN")
+      ) {
         throw new Error("USER_KICKED");
       }
       return false;
