@@ -1,26 +1,158 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f6f1;
+  --ink: #152130;
+  --card: #fffef8;
+  --line: #cdd4df;
+  --accent: #ff6b2d;
+  --accent-soft: #ffd8c8;
+  --teal: #0e8f94;
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-body);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--ink);
+  font-family: var(--font-body), sans-serif;
+}
+
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  width: 52vmax;
+  height: 52vmax;
+  border-radius: 9999px;
+  filter: blur(44px);
+}
+
+body::before {
+  top: -18vmax;
+  right: -10vmax;
+  background: color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+body::after {
+  bottom: -24vmax;
+  left: -14vmax;
+  background: color-mix(in srgb, var(--teal) 22%, transparent);
+}
+
+.app-shell {
+  width: min(1180px, 92%);
+  margin-inline: auto;
+}
+
+.glass-card {
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card) 92%, white 8%);
+  box-shadow: 0 20px 30px -24px rgba(16, 36, 64, 0.5);
+}
+
+.title-font {
+  font-family: var(--font-title), sans-serif;
+}
+
+.fade-rise {
+  animation: fade-rise 480ms ease both;
+}
+
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.plane-fly {
+  animation: plane-fly 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes plane-fly {
+  0% {
+    opacity: 0;
+    transform: translate(-100vw, 100vh) rotate(-45deg) scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(10vw, -10vh) rotate(15deg) scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+}
+
+.slide-right {
+  opacity: 0;
+  animation: slide-right 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation-delay: 1.2s; /* Starts after plane lands */
+}
+
+@keyframes slide-right {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.fade-up-delay {
+  opacity: 0;
+  animation: fade-up 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation-delay: 1.6s;
+}
+
+@keyframes fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dark {
+  --background: #0f1218; /* Darker slate/charcoal */
+  --ink: #f1f5f9; /* Slate 100 */
+  --card: #151a23; /* Dark card background */
+  --line: #263040; /* Dark border */
+  --accent: #D96B40;
+  --accent-soft: #30201a;
+  --teal: #0e8f94;
+  --bg-primary: #0f1218;
+  --bg-secondary: #1a2230;
+  --border-primary: #263040;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --accent-light: #2d1f18;
+}
+
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --border-primary: #F0E6D8;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --accent-light: #FFF0E0;
 }

@@ -1,0 +1,231 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  SUPER_ADMIN
+}
+
+enum AuthProvider {
+  LOCAL
+  FIREBASE
+}
+
+enum KeyStatus {
+  NONE
+  ACTIVE
+  EXPIRED
+}
+
+enum GroupSource {
+  MANUAL
+  FETCH_ALL
+}
+
+enum SendStatus {
+  TERKIRIM
+  GAGAL
+}
+
+model User {
+  id               String          @id @default(uuid()) @db.Uuid
+  email            String          @unique
+  password         String?
+  firebaseUid      String?         @unique
+  authProvider     AuthProvider    @default(FIREBASE)
+  role             Role            @default(USER)
+  nomorTelegram    String?
+  telegramUsername String?
+  telegramVerified Boolean         @default(false)
+  telegramSession  String?
+  keyLisensiAktif  String?
+  statusKey        KeyStatus       @default(NONE)
+  createdAt        DateTime        @default(now())
+
+  sessions       Session[]
+  otpSession     OtpSession?
+  groups         TargetGroup[]
+  messages       MessageText[]
+  logs           SendLog[]
+  notifications  Notification[]
+  autoSendStatus AutoSendStatus?
+  userSetting    UserSetting?
+  createdKeys      LicenseKey[]      @relation("KeysCreatedBy")
+  usedKeys         LicenseKey[]      @relation("KeysUsedBy")
+  adminActivities  AdminActivity[]
+  loginHistories   LoginHistory[]
+}
+
+model Session {
+  token      String   @id
+  userId     String   @db.Uuid
+  createdAt  DateTime @default(now())
+
+  deviceInfo String?
+  ipAddress  String?
+  lastActive DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model LoginHistory {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  deviceInfo String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model OtpSession {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @unique @db.Uuid
+  nomorTelegram String
+  phoneCodeHash String?
+  sessionString String?
+  otp          String
+  expiresAt    DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TargetGroup {
+  id              String      @id @default(uuid()) @db.Uuid
+  userId          String      @db.Uuid
+  namaGrup        String
+  providerGroupId String?
+  source          GroupSource @default(MANUAL)
+  photoUrl        String?
+  memberCount     Int?
+  onlineCount     Int?
+  createdAt       DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model MessageText {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  isiPesan     String
+  mediaUrl     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  deliveryMode String   @default("NOW") // "NOW" | "SCHEDULE" | "REPEAT"
+  msgTarget    String?  // "ALL_GROUPS" | groupId
+  scheduleDate String?   
+  scheduleTime String?
+  intervalNum  Int?
+  intervalUnit String?  // "Menit" | "Jam" | "Hari"
+  sendCount    Int?
+  status       String   @default("AKTIF") // "AKTIF" | "NONAKTIF"
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model LicenseKey {
+  id              String   @id @default(uuid()) @db.Uuid
+  kodeKey         String   @unique
+  durasiHari      Int
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime
+  statusTerpakai  Boolean  @default(false)
+  createdByUserId String   @db.Uuid
+  usedByUserId    String?  @db.Uuid
+  usedByNomorTelegram String?
+
+  createdByUser User  @relation("KeysCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  usedByUser    User? @relation("KeysUsedBy", fields: [usedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdByUserId])
+  @@index([usedByUserId])
+}
+
+model SendLog {
+  id         String     @id @default(uuid()) @db.Uuid
+  userId     String     @db.Uuid
+  groupId    String
+  groupName  String
+  textId     String
+  textPreview String
+  status     SendStatus
+  createdAt  DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AutoSendStatus {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @db.Uuid
+  delaySeconds    Int      @default(10)
+  
+  deliveryMode    String   @default("NOW") // "NOW" | "SCHEDULE" | "REPEAT"
+  scheduleDate    String?   
+  scheduleTime    String?
+  intervalNum     Int?
+  intervalUnit    String?  // "Menit" | "Jam" | "Hari"
+  sendCount       Int?
+  msgTarget       String?  // "ALL_GROUPS" | groupId
+
+  isRunning       Boolean  @default(false)
+  startedAt       DateTime?
+  stoppedAt       DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserSetting {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @unique @db.Uuid
+  delaySeconds Int      @default(10)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  message    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AdminActivity {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  action    String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id              String   @id @default("GLOBAL")
+  maintenanceMode Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
+}
